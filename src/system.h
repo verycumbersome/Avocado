@@ -18,6 +18,8 @@
 
 #include <memory>
 #include <vector>
+#include <queue>
+
 
 /**
  * NOTE:
@@ -62,8 +64,24 @@ struct System {
     std::array<uint8_t, SCRATCHPAD_SIZE> scratchpad;
     std::array<uint8_t, EXPANSION_SIZE> expansion;
 
+    // CONFIG
+    bool debug_write_trace = true; // Show RAM trace
+    bool debug_read_trace = false; // Show RAM trace
+    bool print_dialog = false; // Print in game dialog/text to stdout
+
+    std::queue<uint32_t>trace; // Trace for RAM
+
     bool debugOutput = true;  // Print BIOS logs
     bool biosLoaded = false;
+
+    bool delimeter = false; // For printing texthook
+    bool breakpoint_reached = false;
+
+    uint32_t trace_len = 1024; // Track how many instructions after bp
+    uint32_t trace_counter = 128; // Track how many instructions after bp
+
+    uint32_t ram_tmp; // Keep track of temporary mem for texthooking
+    uint32_t breakpoint = 0x800AFDF4; // Breakpoint for trace printing
 
     uint64_t cycles;
 
@@ -112,6 +130,9 @@ struct System {
     bool loadExpansion(const std::vector<uint8_t>& _exe);
     bool loadExeFile(const std::vector<uint8_t>& _exe);
     void dumpRam();
+
+    void print_reg();
+
 
 #ifdef ENABLE_IO_LOG
     struct IO_LOG_ENTRY {

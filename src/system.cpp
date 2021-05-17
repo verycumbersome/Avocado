@@ -10,6 +10,8 @@
 #include "utils/file.h"
 #include "utils/psx_exe.h"
 
+#include <iostream>
+
 System::System() {
     bios.fill(0);
     ram.fill(0);
@@ -147,9 +149,80 @@ INLINE T System::readMemory(uint32_t address) {
 
     uint32_t addr = align_mips<T>(address);
 
+    setvbuf(stdout, NULL, _IONBF, 0); 
     if (in_range<RAM_BASE, RAM_SIZE * 4>(addr)) {
-        return read_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1));
-    }
+        ram_tmp = read_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1));
+
+        if (print_dialog){
+            // Get the name of the person speaking
+            if ((addr > 0x0CA032) && (addr < 0x0CA068)) {
+                if ((sizeof(T) == 1)) {
+                    if (ram_tmp == 0) {
+                        std::cout << "[NAME]" << std::endl;
+                    } else {
+                        delimeter = true;
+                        printf("%X ", ram_tmp);
+                    }
+                }
+            }
+
+            // Get the dialog of the person speaking
+            if ((addr > 0x1FEBEE) && (addr < 0x1FEC90)) {
+                if (sizeof(T) == 1) {
+                    if (ram_tmp == 0) {
+                        std::cout << std::endl;
+                    } else {
+                        delimeter = true;
+                        printf("%X ", ram_tmp);
+                    }
+
+                } else if (sizeof(T) == 2 && delimeter) {
+                    delimeter = false;
+                    std::cout << std::endl;
+                }
+            }
+        }
+
+
+        if (debug_read_trace){
+            trace.push(addr);
+            trace.push(ram_tmp);
+            if (trace.size() > trace_len) {
+                trace.pop();
+                trace.pop();
+            }
+
+            //if (((addr >= breakpoint) && (addr <= breakpoint)) || breakpoint_reached){
+            if (((ram_tmp >= breakpoint) && (ram_tmp <= breakpoint)) || breakpoint_reached){
+                breakpoint_reached = true;
+                trace_counter--;
+
+                //for (uint32_t i = 0; i < sizeof(cpu->reg); i++){
+                    //printf("REG %d: %X\n", i, cpu->reg[i]);
+                //}
+
+                if (trace_counter <= 0){
+                    printf("\nSTART TRACE:\n");
+                    printf(" ----------------------\n");
+                    for (uint32_t i = 1; i < trace.size(); i++){
+                        printf("%d. \033[34m ADDR:\033[0m 0x%-10X", i, trace.front());
+                        trace.pop();
+                        printf("\033[32mDATA:\033[0m 0x%-10X", trace.front());
+                        trace.pop();
+
+                        printf("\n");
+                    }
+                    printf("\033[31mBYTE\n");
+                    printf("\033[34m ADDR:\033[0m 0x%-10X", addr);
+                    printf("\033[32mDATA:\033[0m 0x%-10X\n", ram_tmp);
+                    printf(" ----------------------\n");
+                    printf("END TRACE:\n\n");
+                }
+            }
+        }
+
+            return read_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1));
+        }
     if (in_range<EXPANSION_BASE, EXPANSION_SIZE>(addr)) {
         return read_fast<T>(expansion.data(), addr - EXPANSION_BASE);
     }
@@ -159,6 +232,7 @@ INLINE T System::readMemory(uint32_t address) {
     if (in_range<BIOS_BASE, BIOS_SIZE>(addr)) {
         return read_fast<T>(bios.data(), addr - BIOS_BASE);
     }
+
 
     READ_IO(0x1f801000, 0x1f801024, memoryControl);
     READ_IO(0x1f801040, 0x1f801050, controller);
@@ -174,6 +248,7 @@ INLINE T System::readMemory(uint32_t address) {
     READ_IO32(0x1f801820, 0x1f801828, mdec);
     READ_IO(0x1f801C00, 0x1f802000, spu);
     READ_IO(0x1f802000, 0x1f804000, expansion2);
+
 
     if (in_range<0xfffe0130, 4>(address) && sizeof(T) == 4) {
         auto data = cacheControl->read(0);
@@ -198,6 +273,42 @@ INLINE void System::writeMemory(uint32_t address, T data) {
     }
 
     uint32_t addr = align_mips<T>(address);
+
+    // Push instructions(addr, data) to trace array
+    if (debug_write_trace){
+        trace.push(addr);
+        trace.push(data);
+        if (trace.size() > trace_len) {
+            trace.pop();
+            trace.pop();
+        }
+
+        // If the data being written is the data set by breakpoint
+        //if (((data >= breakpoint) && (data <= breakpoint)) || breakpoint_reached){
+            //breakpoint_reached = true;
+            //trace_counter--;
+
+        if ((data >= breakpoint) && (data <= breakpoint)){
+            //if (trace_counter <= 0){
+                printf("\nSTART TRACE:\n");
+                printf(" ----------------------\n");
+                for (uint32_t i = 1; i < trace.size(); i++){
+                    printf("%d. \033[34m ADDR:\033[0m 0x%-10X", i, trace.front());
+                    trace.pop();
+                    printf("\033[32mDATA:\033[0m 0x%-10X\n", trace.front());
+                    trace.pop();
+                    print_reg();
+                    printf("\n");
+                }
+                printf("\033[31mBYTE\n");
+                printf("\033[34m ADDR:\033[0m 0x%-10X", addr);
+                printf("\033[32mDATA:\033[0m 0x%-10X\n", data);
+                print_reg();
+                printf(" ----------------------\n");
+                printf("END TRACE:\n\n");
+            //}
+        }
+    }
 
     if (in_range<RAM_BASE, RAM_SIZE * 4>(addr)) {
         return write_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1), data);
@@ -233,6 +344,7 @@ INLINE void System::writeMemory(uint32_t address, T data) {
     fmt::print("[SYS] W Unhandled address at 0x{:08x}: 0x{:02x}\n", address, data);
     cpu->busError();
 }
+
 
 uint8_t System::readMemory8(uint32_t address) { return readMemory<uint8_t>(address); }
 
@@ -517,6 +629,17 @@ bool System::loadExpansion(const std::vector<uint8_t>& _exp) {
     std::copy(_exp.begin(), _exp.end(), expansion.begin());
     return true;
 }
+
+// Pretty print CPU registers at each instruction
+void System::print_reg(){
+    for (uint32_t i = 0; i < cpu->REGISTER_COUNT / 4; i++){
+        for (int j = 0; j < cpu->REGISTER_COUNT / 8; j++){
+            printf("    REG %d: %-10X", i * 4 + j, cpu->reg[i * 4 + j]);
+        }
+        printf("\n");
+    }
+}
+
 
 void System::dumpRam() {
     std::vector<uint8_t> ram(this->ram.begin(), this->ram.end());
