@@ -645,3 +645,4 @@ void System::dumpRam() {
     std::vector<uint8_t> ram(this->ram.begin(), this->ram.end());
     putFileContents("ram.bin", ram);
 }
+
