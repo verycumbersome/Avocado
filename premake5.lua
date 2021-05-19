@@ -261,6 +261,10 @@ project "avocado"
 			"glad",
 			"imgui",
 			"pthread",
+			"glfw",
+			"GLEW",
+			"GLU",
+			"GL",
 		}
 		buildoptions {getOutput("sdl2-config --cflags")}
 		linkoptions {getOutput("sdl2-config --libs")}
