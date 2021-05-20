@@ -65,9 +65,9 @@ struct System {
 
 
     // CONFIG
-    bool debug_write_trace = true; // Show RAM trace
+    bool debug_write_trace = false; // Show RAM trace
     bool debug_read_trace = false; // Show RAM trace
-    bool print_dialog = false; // Print in game dialog/text to stdout
+    bool print_dialog = true; // Print in game dialog/text to stdout
 
     std::queue<uint32_t>trace; // Trace for RAM
 

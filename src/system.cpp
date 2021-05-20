@@ -169,6 +169,7 @@ INLINE T System::readMemory(uint32_t address) {
 
             // Get the dialog of the person speaking
             if ((addr > 0x1FEBEE) && (addr < 0x1FEC90)) {
+                printf("RAM TMP %X\n", ram_tmp);
                 if (sizeof(T) == 1) {
                     if (ram_tmp == 0) {
                         std::cout << std::endl;
@@ -193,14 +194,10 @@ INLINE T System::readMemory(uint32_t address) {
                 trace.pop();
             }
 
-            //if (((addr >= breakpoint) && (addr <= breakpoint)) || breakpoint_reached){
             if (((ram_tmp >= breakpoint) && (ram_tmp <= breakpoint)) || breakpoint_reached){
                 breakpoint_reached = true;
                 trace_counter--;
 
-                //for (uint32_t i = 0; i < sizeof(cpu->reg); i++){
-                    //printf("REG %d: %X\n", i, cpu->reg[i]);
-                //}
 
                 if (trace_counter <= 0){
                     printf("\nSTART TRACE:\n");
@@ -256,6 +253,9 @@ INLINE T System::readMemory(uint32_t address) {
         LOG_IO(IO_LOG_ENTRY::MODE::READ, sizeof(T) * 8, address, data, cpu->PC);
         return data;
     }
+
+    printf("%X\n", addr);
+    return 0x00;
 
     fmt::print("[SYS] R Unhandled address at 0x{:08x}\n", address);
     cpu->busError();
@@ -341,6 +341,7 @@ INLINE void System::writeMemory(uint32_t address, T data) {
         LOG_IO(IO_LOG_ENTRY::MODE::WRITE, sizeof(T) * 8, address, data, cpu->PC);
         return;
     }
+
 
     fmt::print("[SYS] W Unhandled address at 0x{:08x}: 0x{:02x}\n", address, data);
     cpu->busError();
