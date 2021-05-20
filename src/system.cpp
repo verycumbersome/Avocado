@@ -10,8 +10,8 @@
 #include "utils/file.h"
 #include "utils/psx_exe.h"
 
-
 #include <unistd.h>
+#include <iostream>
 
 System::System() {
     bios.fill(0);
@@ -198,6 +198,9 @@ INLINE T System::readMemory(uint32_t address) {
                 breakpoint_reached = true;
                 trace_counter--;
 
+                //for (uint32_t i = 0; i < sizeof(cpu->reg); i++){
+                    //printf("REG %d: %X\n", i, cpu->reg[i]);
+                //}
 
                 if (trace_counter <= 0){
                     printf("\nSTART TRACE:\n");
@@ -657,3 +660,4 @@ void System::dumpRam() {
     std::vector<uint8_t> ram(this->ram.begin(), this->ram.end());
     putFileContents("ram.bin", ram);
 }
+

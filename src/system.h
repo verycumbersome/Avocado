@@ -63,7 +63,6 @@ struct System {
     std::array<uint8_t, SCRATCHPAD_SIZE> scratchpad;
     std::array<uint8_t, EXPANSION_SIZE> expansion;
 
-
     // CONFIG
     bool debug_write_trace = false; // Show RAM trace
     bool debug_read_trace = false; // Show RAM trace
