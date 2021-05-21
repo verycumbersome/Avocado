@@ -10,14 +10,44 @@
 #include "utils/file.h"
 #include "utils/psx_exe.h"
 
+// Translation includes
+#include <map>
+#include <nlohmann/json.hpp>
 #include <unistd.h>
 #include <iostream>
+
+void System::fillTranslationTable(){
+    std::ifstream ifs("/home/matthew/Code/TokimekiMemorialTranslated/pointer_table.json", std::ios::in);
+
+    nlohmann::json pointer_tbl;
+    ifs >> pointer_tbl;
+
+    for (auto iter: pointer_tbl.items()) {
+            auto key = iter.key();
+            auto val = iter.value();
+            
+            std::vector<uint8_t> tmp;
+            for (int i = 0; i < val.size(); i++){
+                tmp.push_back(val[i]);
+            }
+            tmp.push_back(0); // add NULL pointer to sentence
+
+            std::cout << std::stoi(key) << std::endl;
+            translation[std::stoi(key)] = tmp;
+    }
+}
 
 System::System() {
     bios.fill(0);
     ram.fill(0);
     scratchpad.fill(0);
     expansion.fill(0);
+    //translation.fill(0);
+
+    fillTranslationTable();
+    int pointer_tmp = 1638400;
+
+    translation[pointer_tmp] = {130, 128, 0x20, 0x81, 0x42};
 
     cpu = std::make_unique<mips::CPU>(this);
     gpu = std::make_unique<gpu::GPU>(this);
@@ -156,20 +186,19 @@ INLINE T System::readMemory(uint32_t address) {
 
         if (print_dialog){
             // Get the name of the person speaking
-            if ((addr > 0x0CA032) && (addr < 0x0CA068)) {
-                if ((sizeof(T) == 1)) {
-                    if (ram_tmp == 0) {
-                        std::cout << "[NAME]" << std::endl;
-                    } else {
-                        delimeter = true;
-                        printf("%X ", ram_tmp);
-                    }
-                }
-            }
+            //if ((addr > 0x0CA032) && (addr < 0x0CA068)) {
+                //if ((sizeof(T) == 1)) {
+                    //if (ram_tmp == 0) {
+                        //std::cout << "[NAME]" << std::endl;
+                    //} else {
+                        //delimeter = true;
+                        //printf("%X ", ram_tmp);
+                    //}
+                //}
+            //}
 
             // Get the dialog of the person speaking
             if ((addr > 0x1FEBEE) && (addr < 0x1FEC90)) {
-                printf("RAM TMP %X\n", ram_tmp);
                 if (sizeof(T) == 1) {
                     if (ram_tmp == 0) {
                         std::cout << std::endl;
@@ -198,9 +227,6 @@ INLINE T System::readMemory(uint32_t address) {
                 breakpoint_reached = true;
                 trace_counter--;
 
-                //for (uint32_t i = 0; i < sizeof(cpu->reg); i++){
-                    //printf("REG %d: %X\n", i, cpu->reg[i]);
-                //}
 
                 if (trace_counter <= 0){
                     printf("\nSTART TRACE:\n");
@@ -234,7 +260,6 @@ INLINE T System::readMemory(uint32_t address) {
         return read_fast<T>(bios.data(), addr - BIOS_BASE);
     }
 
-
     READ_IO(0x1f801000, 0x1f801024, memoryControl);
     READ_IO(0x1f801040, 0x1f801050, controller);
     READ_IO(0x1f801050, 0x1f801060, serial);
@@ -257,8 +282,33 @@ INLINE T System::readMemory(uint32_t address) {
         return data;
     }
 
-    printf("%X\n", addr);
-    return 0x00;
+    printf("Translation addr: %X\n", addr);
+    if (in_range<TRANSLATION_BASE, TRANSLATION_SIZE>(addr) && ptr == 0) {
+        ptr = addr = addr - TRANSLATION_BASE;
+
+
+        printf("PTR %d\n", ptr);
+        printf("ADDR %d\n", addr);
+
+        // If addr is in translation bank
+        if (translation.find(ptr) != translation.end()) {
+            printf("Translation addr: %d\n", addr);
+            std::cout << "TRANSLATION SIZE " << translation[addr].size() << std::endl;
+
+            for (int i = 0; i < translation[addr].size(); i++){
+                printf("%d\n", translation[addr][i]);
+            }
+
+            if (translation[ptr][addr] == 0) {
+                ptr = 0;
+            }
+
+            return read_fast<T>(translation[ptr].data(), addr);
+
+        } else {
+            return 0;
+        }
+    }
 
     fmt::print("[SYS] R Unhandled address at 0x{:08x}\n", address);
     cpu->busError();

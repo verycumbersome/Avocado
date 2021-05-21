@@ -16,6 +16,8 @@
 #include "device/timer.h"
 #include "utils/macros.h"
 
+// Translation includes
+#include <map>
 #include <memory>
 #include <vector>
 #include <queue>
@@ -50,12 +52,14 @@ struct System {
     static const int SCRATCHPAD_BASE = 0x1f800000;
     static const int EXPANSION_BASE = 0x1f000000;
     static const int IO_BASE = 0x1f801000;
+    static const int TRANSLATION_BASE = 0x1fff0000;
 
     static const int BIOS_SIZE = 512 * 1024;
     static const int RAM_SIZE = 2 * 1024 * 1024;
     static const int SCRATCHPAD_SIZE = 1024;
     static const int EXPANSION_SIZE = 1 * 1024 * 1024;
     static const int IO_SIZE = 0x2000;
+    static const int TRANSLATION_SIZE = 2 * 1024 * 1024;
     State state = State::stop;
 
     std::array<uint8_t, BIOS_SIZE> bios;
@@ -63,12 +67,15 @@ struct System {
     std::array<uint8_t, SCRATCHPAD_SIZE> scratchpad;
     std::array<uint8_t, EXPANSION_SIZE> expansion;
 
+    int ptr = 0;
+    std::map<uint32_t, std::vector<uint8_t> > translation;
+
     // CONFIG
+    std::queue<uint32_t>trace; // Trace for RAM
+
     bool debug_write_trace = false; // Show RAM trace
     bool debug_read_trace = false; // Show RAM trace
-    bool print_dialog = true; // Print in game dialog/text to stdout
-
-    std::queue<uint32_t>trace; // Trace for RAM
+    bool print_dialog = false; // Print in game dialog/text to stdout
 
     bool debugOutput = true;  // Print BIOS logs
     bool biosLoaded = false;
@@ -108,6 +115,8 @@ struct System {
     void singleStep();
     void handleBiosFunction();
     void handleSyscallFunction();
+
+    void fillTranslationTable();
 
     System();
     uint8_t readMemory8(uint32_t address);
