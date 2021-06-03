@@ -32,7 +32,8 @@ void System::fillTranslationTable(){
             }
             tmp.push_back(0); // add NULL pointer to sentence
 
-            std::cout << std::stoi(key) << std::endl;
+            //std::cout << std::stoi(key) << std::endl;
+            std::cout << "KEY: " << key << std::endl;
             translation[std::stoi(key)] = tmp;
     }
 }
@@ -42,7 +43,6 @@ System::System() {
     ram.fill(0);
     scratchpad.fill(0);
     expansion.fill(0);
-    //translation.fill(0);
 
     fillTranslationTable();
     int pointer_tmp = 1638400;
@@ -182,74 +182,8 @@ INLINE T System::readMemory(uint32_t address) {
 
     setvbuf(stdout, NULL, _IONBF, 0); 
     if (in_range<RAM_BASE, RAM_SIZE * 4>(addr)) {
-        ram_tmp = read_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1));
-
-        if (print_dialog){
-            // Get the name of the person speaking
-            //if ((addr > 0x0CA032) && (addr < 0x0CA068)) {
-                //if ((sizeof(T) == 1)) {
-                    //if (ram_tmp == 0) {
-                        //std::cout << "[NAME]" << std::endl;
-                    //} else {
-                        //delimeter = true;
-                        //printf("%X ", ram_tmp);
-                    //}
-                //}
-            //}
-
-            // Get the dialog of the person speaking
-            if ((addr > 0x1FEBEE) && (addr < 0x1FEC90)) {
-                if (sizeof(T) == 1) {
-                    if (ram_tmp == 0) {
-                        std::cout << std::endl;
-                    } else {
-                        delimeter = true;
-                        printf("%X ", ram_tmp);
-                    }
-
-                } else if (sizeof(T) == 2 && delimeter) {
-                    delimeter = false;
-                    std::cout << std::endl;
-                }
-            }
-        }
-
-
-        if (debug_read_trace){
-            trace.push(addr);
-            trace.push(ram_tmp);
-            if (trace.size() > trace_len) {
-                trace.pop();
-                trace.pop();
-            }
-
-            if (((ram_tmp >= breakpoint) && (ram_tmp <= breakpoint)) || breakpoint_reached){
-                breakpoint_reached = true;
-                trace_counter--;
-
-
-                if (trace_counter <= 0){
-                    printf("\nSTART TRACE:\n");
-                    printf(" ----------------------\n");
-                    for (uint32_t i = 1; i < trace.size(); i++){
-                        printf("%d. \033[34m ADDR:\033[0m 0x%-10X", i, trace.front());
-                        trace.pop();
-                        printf("\033[32mDATA:\033[0m 0x%-10X", trace.front());
-                        trace.pop();
-
-                        printf("\n");
-                    }
-                    printf("\033[31mBYTE\n");
-                    printf("\033[34m ADDR:\033[0m 0x%-10X", addr);
-                    printf("\033[32mDATA:\033[0m 0x%-10X\n", ram_tmp);
-                    printf(" ----------------------\n");
-                    printf("END TRACE:\n\n");
-                }
-            }
-        }
-
-            return read_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1));
-        }
+        return read_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1));
+    }
     if (in_range<EXPANSION_BASE, EXPANSION_SIZE>(addr)) {
         return read_fast<T>(expansion.data(), addr - EXPANSION_BASE);
     }
@@ -283,26 +217,31 @@ INLINE T System::readMemory(uint32_t address) {
     }
 
     printf("Translation addr: %X\n", addr);
-    if (in_range<TRANSLATION_BASE, TRANSLATION_SIZE>(addr) && ptr == 0) {
-        ptr = addr = addr - TRANSLATION_BASE;
+    if (in_range<TRANSLATION_BASE, TRANSLATION_SIZE>(addr)) {
+        // ADDR: The key for the JSON given by the remapped pointer in ROM
+        // PTR: The pointer in the array at the JSON address
 
+        if (ptr == 0) {
+            ptr = addr - (TRANSLATION_BASE + 1);
+        }
 
-        printf("PTR %d\n", ptr);
-        printf("ADDR %d\n", addr);
+        addr = addr - ((TRANSLATION_BASE + 1) + ptr);
+
 
         // If addr is in translation bank
         if (translation.find(ptr) != translation.end()) {
-            printf("Translation addr: %d\n", addr);
-            std::cout << "TRANSLATION SIZE " << translation[addr].size() << std::endl;
+            //printf("PTR %d\n", ptr);
+            //printf("ADDR %d\n", addr);
+            //for (int i = 0; i < translation[ptr].size(); i++){
+                //printf("%d\n", translation[ptr][i]);
+            //}
 
-            for (int i = 0; i < translation[addr].size(); i++){
-                printf("%d\n", translation[addr][i]);
-            }
-
-            if (translation[ptr][addr] == 0) {
+            if (translation[ptr][addr] == 0){
                 ptr = 0;
+                return 0;
             }
 
+            //return translation[ptr][addr];
             return read_fast<T>(translation[ptr].data(), addr);
 
         } else {
@@ -327,42 +266,6 @@ INLINE void System::writeMemory(uint32_t address, T data) {
     }
 
     uint32_t addr = align_mips<T>(address);
-
-    // Push instructions(addr, data) to trace array
-    if (debug_write_trace){
-        trace.push(addr);
-        trace.push(data);
-        if (trace.size() > trace_len) {
-            trace.pop();
-            trace.pop();
-        }
-
-        // If the data being written is the data set by breakpoint
-        //if (((data >= breakpoint) && (data <= breakpoint)) || breakpoint_reached){
-            //breakpoint_reached = true;
-            //trace_counter--;
-
-        if ((data >= breakpoint) && (data <= breakpoint)){
-            //if (trace_counter <= 0){
-                printf("\nSTART TRACE:\n");
-                printf(" ----------------------\n");
-                for (uint32_t i = 1; i < trace.size(); i++){
-                    printf("%d. \033[34m ADDR:\033[0m 0x%-10X", i, trace.front());
-                    trace.pop();
-                    printf("\033[32mDATA:\033[0m 0x%-10X\n", trace.front());
-                    trace.pop();
-                    print_reg();
-                    printf("\n");
-                }
-                printf("\033[31mBYTE\n");
-                printf("\033[34m ADDR:\033[0m 0x%-10X", addr);
-                printf("\033[32mDATA:\033[0m 0x%-10X\n", data);
-                print_reg();
-                printf(" ----------------------\n");
-                printf("END TRACE:\n\n");
-            //}
-        }
-    }
 
     if (in_range<RAM_BASE, RAM_SIZE * 4>(addr)) {
         return write_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1), data);

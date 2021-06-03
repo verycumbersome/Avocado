@@ -75,7 +75,7 @@ struct System {
 
     bool debug_write_trace = false; // Show RAM trace
     bool debug_read_trace = false; // Show RAM trace
-    bool print_dialog = false; // Print in game dialog/text to stdout
+    bool print_dialog = true; // Print in game dialog/text to stdout
 
     bool debugOutput = true;  // Print BIOS logs
     bool biosLoaded = false;
