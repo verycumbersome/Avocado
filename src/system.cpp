@@ -25,7 +25,7 @@ void System::fillTranslationTable(){
     for (auto iter: pointer_tbl.items()) {
             auto key = iter.key();
             auto val = iter.value();
-            
+
             std::vector<uint8_t> tmp;
             for (int i = 0; i < val.size(); i++){
                 tmp.push_back(val[i]);
@@ -40,7 +40,7 @@ void System::fillTranslationTable(){
 
 System::System() {
     bios.fill(0);
-    ram.fill(0);
+    ram.resize(!config.options.system.ram8mb ? RAM_SIZE_2MB : RAM_SIZE_8MB, 0);
     scratchpad.fill(0);
     expansion.fill(0);
 
@@ -180,9 +180,8 @@ INLINE T System::readMemory(uint32_t address) {
 
     uint32_t addr = align_mips<T>(address);
 
-    setvbuf(stdout, NULL, _IONBF, 0); 
-    if (in_range<RAM_BASE, RAM_SIZE * 4>(addr)) {
-        return read_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1));
+    if (in_range<RAM_BASE, RAM_SIZE_8MB>(addr)) {
+        return read_fast<T>(ram.data(), (addr - RAM_BASE) & (ram.size() - 1));
     }
     if (in_range<EXPANSION_BASE, EXPANSION_SIZE>(addr)) {
         return read_fast<T>(expansion.data(), addr - EXPANSION_BASE);
@@ -267,8 +266,8 @@ INLINE void System::writeMemory(uint32_t address, T data) {
 
     uint32_t addr = align_mips<T>(address);
 
-    if (in_range<RAM_BASE, RAM_SIZE * 4>(addr)) {
-        return write_fast<T>(ram.data(), (addr - RAM_BASE) & (RAM_SIZE - 1), data);
+    if (in_range<RAM_BASE, RAM_SIZE_8MB>(addr)) {
+        return write_fast<T>(ram.data(), (addr - RAM_BASE) & (ram.size() - 1), data);
     }
     if (in_range<EXPANSION_BASE, EXPANSION_SIZE>(addr)) {
         return write_fast<T>(expansion.data(), addr - EXPANSION_BASE, data);
@@ -303,28 +302,28 @@ INLINE void System::writeMemory(uint32_t address, T data) {
     cpu->busError();
 }
 
-uint8_t System::readMemory8(uint32_t address) { 
-    return readMemory<uint8_t>(address); 
+uint8_t System::readMemory8(uint32_t address) {
+    return readMemory<uint8_t>(address);
 }
 
 uint16_t System::readMemory16(uint32_t address) {
-    return readMemory<uint16_t>(address); 
+    return readMemory<uint16_t>(address);
 }
 
 uint32_t System::readMemory32(uint32_t address) {
     return readMemory<uint32_t>(address);
 }
 
-void System::writeMemory8(uint32_t address, uint8_t data) { 
-    writeMemory<uint8_t>(address, data); 
+void System::writeMemory8(uint32_t address, uint8_t data) {
+    writeMemory<uint8_t>(address, data);
 }
 
-void System::writeMemory16(uint32_t address, uint16_t data) { 
-    writeMemory<uint16_t>(address, data); 
+void System::writeMemory16(uint32_t address, uint16_t data) {
+    writeMemory<uint16_t>(address, data);
 }
 
-void System::writeMemory32(uint32_t address, uint32_t data) { 
-    writeMemory<uint32_t>(address, data); 
+void System::writeMemory32(uint32_t address, uint32_t data) {
+    writeMemory<uint32_t>(address, data);
 }
 
 void System::printFunctionInfo(const char* functionNum, const bios::Function& f) {
@@ -413,7 +412,7 @@ void System::singleStep() {
     state = State::pause;
 
     dma->step();
-    cdrom->step();
+    cdrom->step(3);
     timer[0]->step(3);
     timer[1]->step(3);
     timer[2]->step(3);
@@ -458,7 +457,7 @@ void System::emulateFrame() {
         }
 
         dma->step();
-        cdrom->step();
+        cdrom->step(systemCycles / 1.5f);
         timer[0]->step(systemCycles);
         timer[1]->step(systemCycles);
         timer[2]->step(systemCycles);
@@ -490,7 +489,7 @@ void System::emulateFrame() {
         }
 
         // TODO: Move this code to Timer class
-        if (gpu->gpuLine > gpu::LINE_VBLANK_START_NTSC) {
+        if (gpu->gpuLine > gpu->linesPerFrame() - 20) {
             auto& t = *timer[1];
             if (t.mode.syncEnabled) {
                 using modes = device::timer::CounterMode::SyncMode1;
@@ -579,6 +578,20 @@ bool System::loadBios(const std::string& path) {
     this->biosPath = path;
     state = State::run;
     biosLoaded = true;
+
+    auto patch = [&](uint32_t address, uint32_t opcode) {
+        address &= bios.size() - 1;
+        for (int i = 0; i < 4; i++) {
+            bios[address + i] = (opcode >> (i * 8)) & 0xff;
+        }
+    };
+
+    if (config.debug.log.system) {
+        fmt::print("[INFO] Patching BIOS for system log\n");
+        patch(0x6F0C, 0x24010001);
+        patch(0x6F14, 0xAF81A9C0);
+    }
+
     return true;
 }
 
@@ -613,4 +626,3 @@ void System::dumpRam() {
     std::vector<uint8_t> ram(this->ram.begin(), this->ram.end());
     putFileContents("ram.bin", ram);
 }
-

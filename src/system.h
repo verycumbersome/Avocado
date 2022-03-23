@@ -15,6 +15,7 @@
 #include "device/spu/spu.h"
 #include "device/timer.h"
 #include "utils/macros.h"
+#include "utils/timing.h"
 
 // Translation includes
 #include <map>
@@ -33,6 +34,14 @@
  * Default: true 
  *
  * Enables IO access buffer log
+ */
+
+/**
+ * #define ENABLE_BIOS_HOOKS
+ * Switch --enable-bios-hooks
+ * Default: false
+ *
+ * Enables BIOS syscall hooking/logging
  */
 
 namespace bios {
@@ -55,7 +64,8 @@ struct System {
     static const int TRANSLATION_BASE = 0x1fff0000;
 
     static const int BIOS_SIZE = 512 * 1024;
-    static const int RAM_SIZE = 2 * 1024 * 1024;
+    static const int RAM_SIZE_2MB = 2 * 1024 * 1024;
+    static const int RAM_SIZE_8MB = 8 * 1024 * 1024;
     static const int SCRATCHPAD_SIZE = 1024;
     static const int EXPANSION_SIZE = 1 * 1024 * 1024;
     static const int IO_SIZE = 0x2000;
@@ -63,7 +73,7 @@ struct System {
     State state = State::stop;
 
     std::array<uint8_t, BIOS_SIZE> bios;
-    std::array<uint8_t, RAM_SIZE> ram;
+    std::vector<uint8_t> ram;
     std::array<uint8_t, SCRATCHPAD_SIZE> scratchpad;
     std::array<uint8_t, EXPANSION_SIZE> expansion;
 
