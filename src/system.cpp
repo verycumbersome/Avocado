@@ -283,6 +283,7 @@ INLINE T System::readMemory(uint32_t address) {
     READ_IO(0x1f801C00, 0x1f802000, spu);
     READ_IO(0x1f802000, 0x1f804000, expansion2);
 
+
     if (in_range<0xfffe0130, 4>(address) && sizeof(T) == 4) {
         auto data = cacheControl->read(0);
         LOG_IO(IO_LOG_ENTRY::MODE::READ, sizeof(T) * 8, address, data, cpu->PC);
@@ -371,21 +372,34 @@ INLINE void System::writeMemory(uint32_t address, T data) {
         return;
     }
 
+
     fmt::print("[SYS] W Unhandled address at 0x{:08x}: 0x{:02x}\n", address, data);
     cpu->busError();
 }
 
-uint8_t System::readMemory8(uint32_t address) { return readMemory<uint8_t>(address); }
+uint8_t System::readMemory8(uint32_t address) {
+    return readMemory<uint8_t>(address);
+}
 
-uint16_t System::readMemory16(uint32_t address) { return readMemory<uint16_t>(address); }
+uint16_t System::readMemory16(uint32_t address) {
+    return readMemory<uint16_t>(address);
+}
 
-uint32_t System::readMemory32(uint32_t address) { return readMemory<uint32_t>(address); }
+uint32_t System::readMemory32(uint32_t address) {
+    return readMemory<uint32_t>(address);
+}
 
-void System::writeMemory8(uint32_t address, uint8_t data) { writeMemory<uint8_t>(address, data); }
+void System::writeMemory8(uint32_t address, uint8_t data) {
+    writeMemory<uint8_t>(address, data);
+}
 
-void System::writeMemory16(uint32_t address, uint16_t data) { writeMemory<uint16_t>(address, data); }
+void System::writeMemory16(uint32_t address, uint16_t data) {
+    writeMemory<uint16_t>(address, data);
+}
 
-void System::writeMemory32(uint32_t address, uint32_t data) { writeMemory<uint32_t>(address, data); }
+void System::writeMemory32(uint32_t address, uint32_t data) {
+    writeMemory<uint32_t>(address, data);
+}
 
 void System::printFunctionInfo(const char* functionNum, const bios::Function& f) {
     fmt::print("  {}: {}(", functionNum, f.name);
@@ -671,6 +685,16 @@ bool System::loadExpansion(const std::vector<uint8_t>& _exp) {
 
     std::copy(_exp.begin(), _exp.end(), expansion.begin());
     return true;
+}
+
+// Pretty print CPU registers at each instruction
+void System::print_reg(){
+    for (uint32_t i = 0; i < cpu->REGISTER_COUNT / 4; i++){
+        for (int j = 0; j < cpu->REGISTER_COUNT / 8; j++){
+            printf("    REG %d: %-10X", i * 4 + j, cpu->reg[i * 4 + j]);
+        }
+        printf("\n");
+    }
 }
 
 void System::dumpRam() {

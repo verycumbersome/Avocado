@@ -3,6 +3,13 @@
 #include "cpu/instructions.h"
 #include "system.h"
 
+
+#include "utils/address.h"
+#include <iostream>
+#include <string>
+#include <unistd.h>
+
+
 namespace mips {
 CPU::CPU(System* sys) : sys(sys) {
     setPC(0xBFC00000);
@@ -54,6 +61,7 @@ bool CPU::handleSoftwareBreakpoints() {
     return true;
 }
 
+
 INLINE uint32_t CPU::fetchInstruction(uint32_t address) {
     // Only KUSEG and KSEG0 have code-cache
     // I'm completely clueless if address comparison here makes any sense
@@ -71,6 +79,7 @@ INLINE uint32_t CPU::fetchInstruction(uint32_t address) {
     }
 
     uint32_t data = sys->readMemory32(address);
+
     icache[index] = CacheLine{tag, data};
 
     return data;

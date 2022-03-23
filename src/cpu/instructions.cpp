@@ -1,6 +1,7 @@
 #include "instructions.h"
 #include <cstdio>
 #include "system.h"
+#include "utils/address.h"
 
 using namespace mips;
 
@@ -250,6 +251,7 @@ void op_srav(CPU *cpu, Opcode i) { cpu->setReg(i.rd, ((int32_t)cpu->reg[i.rt]) >
 // JR rs
 void op_jr(CPU *cpu, Opcode i) {
     uint32_t addr = cpu->reg[i.rs];
+
     cpu->inBranchDelay = true;
     if (unlikely(addr & 3)) {
         cpu->cop0.bada = addr;
@@ -263,6 +265,7 @@ void op_jr(CPU *cpu, Opcode i) {
 // JALR
 void op_jalr(CPU *cpu, Opcode i) {
     uint32_t addr = cpu->reg[i.rs];
+
     cpu->inBranchDelay = true;
     cpu->setReg(i.rd, cpu->nextPC);
     if (unlikely(addr & 3)) {
@@ -663,11 +666,13 @@ void op_lwl(CPU *cpu, Opcode i) {
 // LW rt, offset(base)
 void op_lw(CPU *cpu, Opcode i) {
     uint32_t addr = cpu->reg[i.rs] + i.offset;
+
     if (unlikely(addr & 3)) {
         cpu->cop0.bada = addr;
         exception(cpu, COP0::CAUSE::Exception::addressErrorLoad);
         return;
     }
+
     cpu->loadDelaySlot(i.rt, cpu->sys->readMemory32(addr));
 }
 
@@ -675,6 +680,7 @@ void op_lw(CPU *cpu, Opcode i) {
 // LBU rt, offset(base)
 void op_lbu(CPU *cpu, Opcode i) {
     uint32_t addr = cpu->reg[i.rs] + i.offset;
+
     cpu->loadDelaySlot(i.rt, cpu->sys->readMemory8(addr));
 }
 
@@ -682,6 +688,7 @@ void op_lbu(CPU *cpu, Opcode i) {
 // LHU rt, offset(base)
 void op_lhu(CPU *cpu, Opcode i) {
     uint32_t addr = cpu->reg[i.rs] + i.offset;
+
     if (unlikely(addr & 1)) {
         cpu->cop0.bada = addr;
         exception(cpu, COP0::CAUSE::Exception::addressErrorLoad);
@@ -718,6 +725,7 @@ void op_lwr(CPU *cpu, Opcode i) {
 // SB rt, offset(base)
 void op_sb(CPU *cpu, Opcode i) {
     uint32_t addr = cpu->reg[i.rs] + i.offset;
+
     cpu->sys->writeMemory8(addr, cpu->reg[i.rt]);
 }
 
@@ -725,12 +733,21 @@ void op_sb(CPU *cpu, Opcode i) {
 // SH rt, offset(base)
 void op_sh(CPU *cpu, Opcode i) {
     uint32_t addr = cpu->reg[i.rs] + i.offset;
+
     if (unlikely(addr & 1)) {
         cpu->cop0.bada = addr;
         exception(cpu, COP0::CAUSE::Exception::addressErrorStore);
         return;
     }
+
     cpu->sys->writeMemory16(addr, cpu->reg[i.rt]);
+
+    addr = align_mips<uint32_t>(addr);
+    if ((addr > 0x1FEC30) && (addr < 0x1FEC80)){
+        printf("ADDR %X\n", addr);
+        printf("REG %d\n", i.rt);
+        printf("DATA %X\n\n", cpu->reg[i.rt]);
+    }
 }
 
 // Store Word Left
@@ -759,6 +776,12 @@ void op_sw(CPU *cpu, Opcode i) {
         exception(cpu, COP0::CAUSE::Exception::addressErrorStore);
         return;
     }
+
+    uint32_t aligned_addr = align_mips<uint32_t>(cpu->reg[i.rs] + i.offset);
+    if ((aligned_addr > 0x19A000) && (aligned_addr < 0x19E000)){
+        printf("STORE WORD 0x%X\n", aligned_addr);
+    }
+
     cpu->sys->writeMemory32(addr, cpu->reg[i.rt]);
 }
 

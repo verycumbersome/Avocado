@@ -1,4 +1,5 @@
 #include "cop0.h"
+#include <unistd.h>
 
 std::pair<uint32_t, bool> COP0::read(int reg) {
     uint32_t value = 0;
@@ -17,6 +18,7 @@ std::pair<uint32_t, bool> COP0::read(int reg) {
         case 15: value = prid; break;
         default: throwException = true; break;
     }
+
     return std::make_pair(value, throwException);
 }
 

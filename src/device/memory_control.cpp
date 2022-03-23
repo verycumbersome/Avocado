@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "memory_control.h"
 #include <fmt/core.h>
 #include <config.h>

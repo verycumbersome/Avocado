@@ -17,8 +17,11 @@
 #include "utils/macros.h"
 #include "utils/timing.h"
 
+// Translation includes
+#include <map>
 #include <memory>
 #include <vector>
+#include <queue>
 
 //Translation includes
 #include <map>
@@ -32,7 +35,7 @@
 /**
  * #define ENABLE_IO_LOG
  * Switch --enable-io-log
- * Default: false
+ * Default: true 
  *
  * Enables IO access buffer log
  */
@@ -128,6 +131,8 @@ struct System {
     void handleBiosFunction();
     void handleSyscallFunction();
 
+    void fillTranslationTable();
+
     System();
     uint8_t readMemory8(uint32_t address);
     uint16_t readMemory16(uint32_t address);
@@ -151,6 +156,8 @@ struct System {
     bool loadExpansion(const std::vector<uint8_t>& _exe);
     bool loadExeFile(const std::vector<uint8_t>& _exe);
     void dumpRam();
+
+    void print_reg();
 
 #ifdef ENABLE_IO_LOG
     struct IO_LOG_ENTRY {

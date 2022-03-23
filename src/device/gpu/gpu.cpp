@@ -9,6 +9,11 @@
 #include "utils/macros.h"
 #include "utils/timing.h"
 
+
+
+#include <unistd.h>
+#include <iostream>
+
 // For vram dump
 #include <stb_image_write.h>
 

@@ -6,7 +6,11 @@
 #include "opcode.h"
 #include "utils/macros.h"
 
+#include <iostream>
+#include <fstream>
+
 struct System;
+
 
 namespace mips {
 
@@ -39,6 +43,7 @@ r29     sp    - stack pointer
 r30     fp    - frame pointer
 r31     ra    - return address
 */
+
 
 struct LoadSlot {
     uint32_t reg;
@@ -86,13 +91,14 @@ struct CPU {
     bool icacheEnabled;
     CacheLine icache[1024];
 
-    bool breakpointsEnabled = false;
+    bool breakpointsEnabled = true;
 
     CPU(System* sys);
     void checkForInterrupts();
     INLINE void moveLoadDelaySlots();
     INLINE void loadDelaySlot(uint32_t r, uint32_t data) {
         if (r == 0) return;
+
         if (r == slots[0].reg) {
             slots[0].reg = DUMMY_REG;  // Override previous write to same register
         }
@@ -101,6 +107,7 @@ struct CPU {
     }
     INLINE void setReg(uint32_t r, uint32_t data) {
         if (r == 0) return;
+
         reg[r] = data;
 
         // Invalidate
