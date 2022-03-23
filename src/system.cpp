@@ -10,11 +10,49 @@
 #include "utils/file.h"
 #include "utils/psx_exe.h"
 
+// Translation includes
+#include <map>
+#include <iostream>
+#include <nlohmann/json.hpp>
+#include <unistd.h>
+#include <fstream>
+
+//void System::fillTranslationTable(){
+    //std::ifstream ifs("/home/matthew/Code/TokimekiMemorialTranslated/pointer_table.json", std::ios::in);
+
+    //nlohmann::json pointer_tbl;
+    //ifs >> pointer_tbl;
+
+    //for (auto iter: pointer_tbl.items()) {
+            //auto key = iter.key();
+            //auto val = iter.value();
+
+            //std::vector<uint8_t> tmp;
+            //for (int i = 0; i < val.size(); i++){
+                //tmp.push_back(val[i]);
+            //}
+            //tmp.push_back(0); // add NULL pointer to sentence
+
+            ////std::cout << std::stoi(key) << std::endl;
+            //std::cout << "KEY: " << key << std::endl;
+            //translation[std::stoi(key)] = tmp;
+    //}
+//}
+
+void System::fillTranslationTable(){
+    translation[0] = {124, 142, 142, 142};
+}
+
 System::System() {
     bios.fill(0);
     ram.resize(!config.options.system.ram8mb ? RAM_SIZE_2MB : RAM_SIZE_8MB, 0);
     scratchpad.fill(0);
     expansion.fill(0);
+
+    fillTranslationTable();
+    int pointer_tmp = 1638400;
+
+    translation[pointer_tmp] = {130, 128, 0x20, 0x81, 0x42};
 
     cpu = std::make_unique<mips::CPU>(this);
     gpu = std::make_unique<gpu::GPU>(this);
@@ -148,6 +186,76 @@ INLINE T System::readMemory(uint32_t address) {
     uint32_t addr = align_mips<T>(address);
 
     if (in_range<RAM_BASE, RAM_SIZE_8MB>(addr)) {
+        ram_tmp = read_fast<T>(ram.data(), (addr - RAM_BASE) & (ram.size() - 1));
+
+        if (print_dialog){
+            // Get the name of the person speaking
+            if ((addr > 0x0CA032) && (addr < 0x0CA068)) {
+                if ((sizeof(T) == 1)) {
+                    if (ram_tmp == 0) {
+                        std::cout << "[NAME]" << std::endl;
+                    } else {
+                        delimeter = true;
+                        printf("%X ", ram_tmp);
+                    }
+                }
+            }
+
+            // Get the dialog of the person speaking
+            if ((addr > 0x1FEBEE) && (addr < 0x1FEC90)) {
+                if (sizeof(T) == 1) {
+                    if (ram_tmp == 0) {
+                        std::cout << std::endl;
+                    } else {
+                        delimeter = true;
+                        printf("%X ", ram_tmp);
+                    }
+
+                } else if (sizeof(T) == 2 && delimeter) {
+                    delimeter = false;
+                    std::cout << std::endl;
+                }
+            }
+        }
+
+
+        if (debug_read_trace){
+            trace.push(addr);
+            trace.push(ram_tmp);
+            if (trace.size() > trace_len) {
+                trace.pop();
+                trace.pop();
+            }
+
+            //if (((addr >= breakpoint) && (addr <= breakpoint)) || breakpoint_reached){
+            if (((ram_tmp >= breakpoint) && (ram_tmp <= breakpoint)) || breakpoint_reached){
+                breakpoint_reached = true;
+                trace_counter--;
+
+                //for (uint32_t i = 0; i < sizeof(cpu->reg); i++){
+                    //printf("REG %d: %X\n", i, cpu->reg[i]);
+                //}
+
+                if (trace_counter <= 0){
+                    printf("\nSTART TRACE:\n");
+                    printf(" ----------------------\n");
+                    for (uint32_t i = 1; i < trace.size(); i++){
+                        printf("%d. \033[34m ADDR:\033[0m 0x%-10X", i, trace.front());
+                        trace.pop();
+                        printf("\033[32mDATA:\033[0m 0x%-10X", trace.front());
+                        trace.pop();
+
+                        printf("\n");
+                    }
+                    printf("\033[31mBYTE\n");
+                    printf("\033[34m ADDR:\033[0m 0x%-10X", addr);
+                    printf("\033[32mDATA:\033[0m 0x%-10X\n", ram_tmp);
+                    printf(" ----------------------\n");
+                    printf("END TRACE:\n\n");
+                }
+            }
+        }
+
         return read_fast<T>(ram.data(), (addr - RAM_BASE) & (ram.size() - 1));
     }
     if (in_range<EXPANSION_BASE, EXPANSION_SIZE>(addr)) {
@@ -179,6 +287,39 @@ INLINE T System::readMemory(uint32_t address) {
         auto data = cacheControl->read(0);
         LOG_IO(IO_LOG_ENTRY::MODE::READ, sizeof(T) * 8, address, data, cpu->PC);
         return data;
+    }
+
+    printf("Translation addr: %X\n", addr);
+    if (in_range<TRANSLATION_BASE, TRANSLATION_SIZE>(addr)) {
+        // ADDR: The key for the JSON given by the remapped pointer in ROM
+        // PTR: The pointer in the array at the JSON address
+
+        if (ptr == 0) {
+            ptr = addr - (TRANSLATION_BASE + 1);
+        }
+
+        addr = addr - ((TRANSLATION_BASE + 1) + ptr);
+
+
+        // If addr is in translation bank
+        if (translation.find(ptr) != translation.end()) {
+            //printf("PTR %d\n", ptr);
+            //printf("ADDR %d\n", addr);
+            //for (int i = 0; i < translation[ptr].size(); i++){
+                //printf("%d\n", translation[ptr][i]);
+            //}
+
+            if (translation[ptr][addr] == 0){
+                ptr = 0;
+                return 0;
+            }
+
+            //return translation[ptr][addr];
+            return read_fast<T>(translation[ptr].data(), addr);
+
+        } else {
+            return 0;
+        }
     }
 
     fmt::print("[SYS] R Unhandled address at 0x{:08x}\n", address);
