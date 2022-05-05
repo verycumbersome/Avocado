@@ -131,8 +131,6 @@ struct System {
     void handleBiosFunction();
     void handleSyscallFunction();
 
-    void fillTranslationTable();
-
     System();
     uint8_t readMemory8(uint32_t address);
     uint16_t readMemory16(uint32_t address);

@@ -17,31 +17,31 @@
 #include <unistd.h>
 #include <fstream>
 
-//void System::fillTranslationTable(){
-    //std::ifstream ifs("/home/matthew/Code/TokimekiMemorialTranslated/pointer_table.json", std::ios::in);
-
-    //nlohmann::json pointer_tbl;
-    //ifs >> pointer_tbl;
-
-    //for (auto iter: pointer_tbl.items()) {
-            //auto key = iter.key();
-            //auto val = iter.value();
-
-            //std::vector<uint8_t> tmp;
-            //for (int i = 0; i < val.size(); i++){
-                //tmp.push_back(val[i]);
-            //}
-            //tmp.push_back(0); // add NULL pointer to sentence
-
-            ////std::cout << std::stoi(key) << std::endl;
-            //std::cout << "KEY: " << key << std::endl;
-            //translation[std::stoi(key)] = tmp;
-    //}
-//}
-
 void System::fillTranslationTable(){
-    translation[0] = {124, 142, 142, 142};
+    std::ifstream ifs("/Users/matthewjordan/Code/TokimekiMemorialTranslated/pointer_table.json", std::ios::in);
+
+    nlohmann::json pointer_tbl;
+    ifs >> pointer_tbl;
+
+    for (auto iter: pointer_tbl.items()) {
+            auto key = iter.key();
+            auto val = iter.value();
+
+            std::vector<uint8_t> tmp;
+            for (int i = 0; i < val.size(); i++){
+                tmp.push_back(val[i]);
+            }
+            tmp.push_back(0); // add NULL pointer to sentence
+
+            //std::cout << std::stoi(key) << std::endl;
+            std::cout << "KEY: " << key << std::endl;
+            translation[std::stoi(key)] = tmp;
+    }
 }
+
+//void System::fillTranslationTable(){
+    //translation[0] = {124, 142, 142, 142};
+//}
 
 System::System() {
     bios.fill(0);
@@ -300,22 +300,21 @@ INLINE T System::readMemory(uint32_t address) {
         }
 
         addr = addr - ((TRANSLATION_BASE + 1) + ptr);
-
+        printf("Translation addr: %X\n", addr);
 
         // If addr is in translation bank
         if (translation.find(ptr) != translation.end()) {
-            //printf("PTR %d\n", ptr);
-            //printf("ADDR %d\n", addr);
-            //for (int i = 0; i < translation[ptr].size(); i++){
-                //printf("%d\n", translation[ptr][i]);
-            //}
+            printf("PTR %d\n", ptr);
+            printf("ADDR %d\n", addr);
+            for (int i = 0; i < translation[ptr].size(); i++){
+                printf("%d\n", translation[ptr][i]);
+            }
 
             if (translation[ptr][addr] == 0){
                 ptr = 0;
                 return 0;
             }
 
-            //return translation[ptr][addr];
             return read_fast<T>(translation[ptr].data(), addr);
 
         } else {
